@@ -5,6 +5,9 @@
 #include <pool.h>
 #include <server.h>
 
+#define POOL_ACCEPT 1
+#define POOL_READLINE 2
+
 char *reverse(const char *string)
 {
     size_t size = strlen(string);
@@ -18,7 +21,7 @@ char *reverse(const char *string)
     return rev;
 }
 
-void *handle_client(void *arg)
+void handle_client(void *arg, emittor_t *_)
 {
     int client = *(int *)arg;
     while (1)
@@ -36,10 +39,9 @@ void *handle_client(void *arg)
     }
     close(client);
     free(arg);
-    return NULL;
 }
 
-void *accept_client(void *arg)
+void accept_client(void *arg, emittor_t *emittor)
 {
     server_t *server = arg;
     int *client;
@@ -50,7 +52,18 @@ void *accept_client(void *arg)
         fprintf(stderr, "Error: server failed to establish connection\n");
         exit(1);
     }
-    return client;
+    emittor_emit(emittor, client);
+}
+
+void get_line(void *_, emittor_t *emittor)
+{
+    char *line = NULL;
+    size_t alloc;
+    while (1)
+    {
+        getline(&line, &alloc, stdin);
+        emittor_emit(emittor, line);
+    }
 }
 
 int main(int argc, char **argv)
@@ -79,12 +92,21 @@ int main(int argc, char **argv)
         return 1;
     }
     printf("listening on port %d...\n", port);
-    pool_execute(&pool, accept_client, &server);
+    pool_execute(&pool, accept_client, &server, POOL_ACCEPT);
+    pool_execute(&pool, get_line, NULL, POOL_READLINE);
     while (1)
     {
         event_t event = pool_poll(&pool);
-        pool_execute(&pool, accept_client, &server);
-        pool_execute(&pool, handle_client, event);
+        if (event.task_id == POOL_ACCEPT)
+        {
+            pool_execute(&pool, accept_client, &server, POOL_ACCEPT);
+            pool_execute(&pool, handle_client, event.ret, -1);
+        }
+        else
+        {
+            pool_execute(&pool, get_line, NULL, POOL_READLINE);
+            printf("shell>>> %s\n", (char *)event.ret);
+        }
     }
     pool_destroy(&pool);
     printf("ended:(\n");
