@@ -18,7 +18,7 @@ char *reverse(const char *string)
     return rev;
 }
 
-void handle_client(void *arg)
+void *handle_client(void *arg)
 {
     int client = *(int *)arg;
     while (1)
@@ -36,6 +36,21 @@ void handle_client(void *arg)
     }
     close(client);
     free(arg);
+    return NULL;
+}
+
+void *accept_client(void *arg)
+{
+    server_t *server = arg;
+    int *client;
+    client = malloc(sizeof(int));
+    *client = server_accept(server);
+    if (*client == -1)
+    {
+        fprintf(stderr, "Error: server failed to establish connection\n");
+        exit(1);
+    }
+    return client;
 }
 
 int main(int argc, char **argv)
@@ -64,20 +79,14 @@ int main(int argc, char **argv)
         return 1;
     }
     printf("listening on port %d...\n", port);
-    int *client;
+    pool_execute(&pool, accept_client, &server);
     while (1)
     {
-        client = malloc(sizeof(int));
-        *client = server_accept(&server);
-        if (*client == -1)
-        {
-            fprintf(stderr, "Error: server failed to establish connection\n");
-            return 1;
-        }
-        // handle_client(client);
-        pool_execute(&pool, handle_client, client);
+        event_t event = pool_poll(&pool);
+        pool_execute(&pool, accept_client, &server);
+        pool_execute(&pool, handle_client, event);
     }
-    pool_terminate(&pool);
+    pool_destroy(&pool);
     printf("ended:(\n");
     return 0;
 }
