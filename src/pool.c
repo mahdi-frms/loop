@@ -6,6 +6,7 @@
 #include <errno.h>
 
 void handle_client(int client);
+
 void *_worker(void *args)
 {
     task_t task;
@@ -13,7 +14,7 @@ void *_worker(void *args)
     while (1)
     {
         pthread_mutex_lock(&pool->mutex);
-        read(pool->command_pipe[0], &task, sizeof(task_t));
+        read(pool->queue_pipe[0], &task, sizeof(task_t));
         pthread_mutex_unlock(&pool->mutex);
         if (task.del == NULL)
         {
@@ -21,11 +22,7 @@ void *_worker(void *args)
         }
         else
         {
-            size_t task_id = task.task_id;
-            emittor_t emittor;
-            emittor.pool = pool;
-            emittor.task_id = task_id;
-            task.del(task.args, &emittor);
+            task.del(task.args, task.pipe);
         }
     }
     return NULL;
@@ -33,8 +30,7 @@ void *_worker(void *args)
 
 void pool_initialize(threadpool_t *pool, size_t thread_count)
 {
-    pipe(pool->command_pipe);
-    pipe(pool->event_pipe);
+    pipe(pool->queue_pipe);
     pthread_mutex_init(&pool->mutex, NULL);
     pool->threads = calloc(sizeof(threadpool_t), thread_count);
     for (size_t i = 0; i < thread_count; i++)
@@ -50,7 +46,8 @@ void pool_destroy(threadpool_t *pool)
 {
     for (size_t i = 0; i < pool->thread_count; i++)
     {
-        pool_execute(pool, NULL, NULL, 0);
+        int fd[2];
+        pool_execute(pool, NULL, NULL, fd);
     }
     for (size_t i = 0; i < pool->thread_count; i++)
     {
@@ -59,32 +56,22 @@ void pool_destroy(threadpool_t *pool)
     }
     free(pool->threads);
     pthread_mutex_destroy(&pool->mutex);
-    close(pool->command_pipe[0]);
-    close(pool->command_pipe[1]);
-    close(pool->event_pipe[0]);
-    close(pool->event_pipe[1]);
+    close(pool->queue_pipe[0]);
+    close(pool->queue_pipe[1]);
 }
 
-void pool_execute(threadpool_t *pool, delegate_t del, void *args, size_t task_id)
+void pool_execute(threadpool_t *pool, delegate_t del, void *args, int *pipe_fds)
 {
     task_t task;
     task.del = del;
     task.args = args;
-    task.task_id = task_id;
-    write(pool->command_pipe[1], &task, sizeof(task_t));
-}
 
-event_t pool_poll(threadpool_t *pool)
-{
-    event_t event;
-    read(pool->event_pipe[0], &event, sizeof(event_t));
-    return event;
-}
+    pipe(task.pipe);
+    pipe(pipe_fds);
+    //swap
+    int tmp = task.pipe[1];
+    task.pipe[1] = pipe_fds[1];
+    pipe_fds[1] = tmp;
 
-void emittor_emit(emittor_t *emittor, void *message)
-{
-    event_t event;
-    event.ret = message;
-    event.task_id = emittor->task_id;
-    write(emittor->pool->event_pipe[1], &event, sizeof(event_t));
+    write(pool->queue_pipe[1], &task, sizeof(task_t));
 }
