@@ -16,13 +16,13 @@ void *_worker(void *args)
         pthread_mutex_lock(&pool->mutex);
         read(pool->queue_pipe[0], &task, sizeof(task_t));
         pthread_mutex_unlock(&pool->mutex);
-        if (task.del == NULL)
+        if (task.worker == NULL)
         {
             break;
         }
         else
         {
-            task.del(task.args, task.pipe);
+            task.worker(task.args, task.pipe);
         }
     }
     return NULL;
@@ -60,10 +60,10 @@ void pool_destroy(threadpool_t *pool)
     close(pool->queue_pipe[1]);
 }
 
-void pool_execute(threadpool_t *pool, delegate_t del, void *args, int *pipe_fds)
+void pool_execute(threadpool_t *pool, void *worker, void *args, int *pipe_fds)
 {
     task_t task;
-    task.del = del;
+    task.worker = worker;
     task.args = args;
 
     pipe(task.pipe);

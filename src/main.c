@@ -21,43 +21,30 @@ char *reverse(const char *string)
     return rev;
 }
 
-// void handle_client(void *arg, int *evl_pipe)
-// {
-//     int client = *(int *)arg;
-//     while (1)
-//     {
-//         if (poll_dual(evl_pipe[0], client) == 0)
-//         {
-//             // event loop
-//             break;
-//         }
-//         else
-//         {
-//             // client
-//             char *string = server_recieve(client);
-//             if (string == NULL || strcmp(string, "") == 0 || strcmp(string, "\n") == 0)
-//             {
-//                 break;
-//             }
-//             string = reverse(string);
-//             if (server_send(client, string, strlen(string)) == -1)
-//             {
-//                 break;
-//             }
-//         }
-//     }
-//     close(client);
-//     free(arg);
-// }
-
-void on_line(char *line)
+void on_line(evloop_t *loop, char *line)
 {
-    printf("line=%s", line);
+    if (strcmp(line, "fin\n") == 0)
+    {
+        evloop_terminate(loop);
+    }
+    else
+    {
+        printf("line=%s", line);
+    }
 }
 
-void on_client(int client)
+void on_message(evloop_t *loop, int client, char *message)
+{
+    char *rev = reverse(message);
+    printf("client: %s", message);
+    free(message);
+    evloop_do_write_client(loop, client, rev);
+}
+
+void on_client(evloop_t *loop, int client)
 {
     printf("new client\n");
+    evloop_do_read_client(loop, client, on_message);
 }
 
 int main(int argc, char **argv)

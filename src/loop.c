@@ -1,11 +1,11 @@
-#include <loop.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
-#include <server.h>
-#include <hashmap.h>
 #include <poll.h>
+#include <hashmap.h>
+#include <server.h>
+#include <loop-internal.h>
 
 int poll_dual(int fd1, int fd2)
 {
@@ -51,17 +51,32 @@ void evloop_worker_readline(void *_, int *evl_pipe)
         {
             getline(&line, &alloc, stdin);
             message_t mes;
-            mes.ptr = line;
+            message_readline *_mes = malloc(sizeof(message_readline));
+            _mes->string = line;
+            mes.ptr = _mes;
             mes.mtype = mtype_readline;
             write(evl_pipe[1], &mes, sizeof(message_t));
         }
     }
 }
 
+void evloop_worker_write_client(void *args, int *evl_pipe)
+{
+    arglist_write_client arglist = *(arglist_write_client *)args;
+    write(arglist.client, arglist.message, strlen(arglist.message));
+    message_t mes;
+    message_terminate *_mes = malloc(sizeof(message_terminate));
+    mes.ptr = _mes;
+    mes.mtype = mtype_terminate;
+    write(evl_pipe[1], &mes, sizeof(message_t));
+    free(arglist.message);
+    free(args);
+}
+
 void evloop_worker_accept_client(void *arg, int *evl_pipe)
 {
-    server_t *server = arg;
-    int *client;
+    arglist_accept_client *arglist = arg;
+    server_t *server = arglist->server;
     while (1)
     {
         if (poll_dual(evl_pipe[0], server->fd) == 0)
@@ -70,18 +85,60 @@ void evloop_worker_accept_client(void *arg, int *evl_pipe)
         }
         else
         {
-            client = malloc(sizeof(int));
-            *client = server_accept(server);
             message_t mes;
-            mes.ptr = client;
+            message_accept_client *_mes = malloc(sizeof(message_accept_client));
+            _mes->client = server_accept(server);
+            mes.ptr = _mes;
             mes.mtype = mtype_accept_client;
             write(evl_pipe[1], &mes, sizeof(message_t));
         }
     }
 }
 
+void evloop_worker_read_client(void *arg, int *evl_pipe)
+{
+    arglist_read_client *arglist = arg;
+    int client = arglist->client;
+    while (1)
+    {
+        if (poll_dual(evl_pipe[0], client) == 0)
+        {
+            // event loop
+            break;
+        }
+        else
+        {
+            // client message
+            message_t mes;
+            char *string = server_recieve(client);
+            if (strcmp(string, "") == 0)
+            {
+                // client closed
+                mes.mtype = mtype_terminate;
+                message_terminate *_mes = malloc(sizeof(message_terminate));
+                mes.ptr = _mes;
+                write(evl_pipe[1], &mes, sizeof(message_t));
+                break;
+            }
+            else
+            {
+                // client message
+                mes.mtype = mtype_read_client;
+                message_read_client *_mes = malloc(sizeof(message_read_client));
+                _mes->client = client;
+                _mes->string = string;
+                mes.ptr = _mes;
+                write(evl_pipe[1], &mes, sizeof(message_t));
+            }
+        }
+    }
+    close(client);
+    free(arg);
+}
+
 void evloop_initialize(evloop_t *loop, size_t thread_count)
 {
+    loop->end = 0;
     evloop_task_hmap_init(loop);
     pool_initialize(&loop->pool, thread_count);
 }
@@ -116,10 +173,18 @@ uint64_t evloop_task_hash(const void *task, uint64_t seed0, uint64_t seed1)
     return hashmap_sip(&p, sizeof(int), seed0, seed1);
 }
 
-bool evloop_task_iter(const void *item, void *udata)
+bool evloop_task_iter_readpipe(const void *item, void *udata)
 {
     int **array_ptr = udata;
     **array_ptr = ((evloop_task *)item)->pipe[0];
+    (*array_ptr)++;
+    return true;
+}
+
+bool evloop_task_iter_writepipe(const void *item, void *udata)
+{
+    int **array_ptr = udata;
+    **array_ptr = ((evloop_task *)item)->pipe[1];
     (*array_ptr)++;
     return true;
 }
@@ -149,34 +214,66 @@ void evloop_task_hmap_delete(evloop_t *loop, int pipe_fd)
     hashmap_delete(loop->map, &task);
 }
 
-int *evloop_task_hmap_list(evloop_t *loop, size_t *len)
+int *evloop_task_hmap_list_readpipe(evloop_t *loop, size_t *len)
 {
     *len = hashmap_count(loop->map);
     int *array = calloc(sizeof(int), *len);
-    hashmap_scan(loop->map, evloop_task_iter, &array);
+    hashmap_scan(loop->map, evloop_task_iter_readpipe, &array);
+    return array - *len;
+}
+
+int *evloop_task_hmap_list_writepipe(evloop_t *loop, size_t *len)
+{
+    *len = hashmap_count(loop->map);
+    int *array = calloc(sizeof(int), *len);
+    hashmap_scan(loop->map, evloop_task_iter_writepipe, &array);
     return array - *len;
 }
 
 void evloop_do_readline(evloop_t *loop, callback_readline cb)
 {
+    arglist_readline *args = malloc(sizeof(arglist_readline));
     evloop_task *task = malloc(sizeof(evloop_task));
     task->cb = cb;
-    pool_execute(&loop->pool, evloop_worker_readline, NULL, task->pipe);
+    pool_execute(&loop->pool, evloop_worker_readline, args, task->pipe);
     evloop_task_hmap_add(loop, task);
 }
 
 void evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb)
 {
+    arglist_accept_client *args = malloc(sizeof(arglist_accept_client));
+    args->server = server;
     evloop_task *task = malloc(sizeof(evloop_task));
     task->cb = cb;
-    pool_execute(&loop->pool, evloop_worker_accept_client, server, task->pipe);
+    pool_execute(&loop->pool, evloop_worker_accept_client, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+}
+
+void evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb)
+{
+    arglist_read_client *args = malloc(sizeof(arglist_read_client));
+    args->client = client;
+    evloop_task *task = malloc(sizeof(evloop_task));
+    task->cb = cb;
+    pool_execute(&loop->pool, evloop_worker_read_client, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+}
+
+void evloop_do_write_client(evloop_t *loop, int client, char *message)
+{
+    arglist_write_client *args = malloc(sizeof(arglist_write_client));
+    args->client = client;
+    args->message = message;
+    evloop_task *task = malloc(sizeof(evloop_task));
+    task->cb = NULL;
+    pool_execute(&loop->pool, evloop_worker_write_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
 }
 
 int evloop_poll(evloop_t *loop)
 {
     size_t len;
-    int *pollfds = evloop_task_hmap_list(loop, &len);
+    int *pollfds = evloop_task_hmap_list_readpipe(loop, &len);
     return pollfds[poll_array(pollfds, len)];
 }
 
@@ -187,9 +284,25 @@ message_t evloop_get_message(int pollfd)
     return mes;
 }
 
+void evloop_terminate(evloop_t *loop)
+{
+    loop->end = 1;
+}
+
+void evloop_abort(evloop_t *loop)
+{
+    char term = '\n';
+    size_t len;
+    int *pollfds = evloop_task_hmap_list_writepipe(loop, &len);
+    for (size_t i = 0; i < len; i++)
+    {
+        write(pollfds[i], &term, sizeof(char));
+    }
+}
+
 void evloop_main_loop(evloop_t *loop)
 {
-    while (1)
+    while (loop->end == 0)
     {
         int pollfd = evloop_poll(loop);
         evloop_task *task = evloop_task_hmap_get(loop, pollfd);
@@ -200,22 +313,29 @@ void evloop_main_loop(evloop_t *loop)
         }
         else if (mes.mtype == mtype_readline)
         {
+            message_readline *_mes = mes.ptr;
             callback_readline cb = task->cb;
-            cb(mes.ptr);
+            cb(loop, _mes->string);
         }
         else if (mes.mtype == mtype_accept_client)
         {
+            message_accept_client *_mes = mes.ptr;
             callback_accept_client cb = task->cb;
-            int client = *(int *)mes.ptr;
-            cb(client);
+            cb(loop, _mes->client);
         }
-        else if (mes.mtype == mtype_get_message)
+        else if (mes.mtype == mtype_read_client)
         {
-            // unused
+            message_read_client *_mes = mes.ptr;
+            callback_read_client cb = task->cb;
+            cb(loop, _mes->client, _mes->string);
         }
-        else if (mes.mtype == mtype_close_client)
+        else
         {
-            // unused
+            // err
+            // undefined message
         }
+        free(mes.ptr);
     }
+
+    evloop_abort(loop);
 }
