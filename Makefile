@@ -1,5 +1,12 @@
 FLAGS = -g -Wall -Werror -Isrc
-OBJECTS = target/main.o target/pool.o target/server.o target/hashmap.o target/loop.o
+OBJECTS = target/main.o\
+ 	target/pool.o\
+  	target/server.o\
+   	target/hashmap.o\
+    target/loop.o\
+	target/task.o\
+	target/worker.o\
+
 BIN = target/server
 
 target/server : ${OBJECTS}
