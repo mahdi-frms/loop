@@ -1,16 +1,22 @@
 FLAGS = -g -Wall -Werror -Isrc
-OBJECTS = target/main.o\
- 	target/pool.o\
+LIBOBJECTS = target/pool.o\
   	target/server.o\
    	target/hashmap.o\
     target/loop.o\
 	target/task.o\
 	target/worker.o\
 
-BIN = target/server
+OBJECTS = target/main.o\
+target/server.o
 
-target/server : ${OBJECTS}
-	gcc ${OBJECTS} -lpthread -o ${BIN}
+BIN = target/server
+LIB = target/libloop.a
+
+${BIN} : ${OBJECTS} ${LIB}
+	gcc ${OBJECTS} -lpthread -Ltarget -lloop -o ${BIN}
+
+${LIB} : ${LIBOBJECTS}
+	ar rs ${LIB} ${LIBOBJECTS}
 
 target/%.o : src/%.c
 	gcc -c $^ ${FLAGS} -o $@

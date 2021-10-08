@@ -2,7 +2,6 @@
 #define LOOP_H
 
 #include <pool.h>
-#include <hashmap.h>
 #include <server.h>
 #include <message.h>
 
