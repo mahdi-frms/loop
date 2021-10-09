@@ -88,6 +88,14 @@ int *evloop_task_hmap_list_writepipe(evloop_t *loop, size_t *len)
     return array - *len;
 }
 
+evloop_task *evloop_task_create(evloop_t *loop, void *cb)
+{
+    evloop_task *task = malloc(sizeof(evloop_task));
+    task->cb = cb;
+    task->id = loop->next_task_id++;
+    return task;
+}
+
 int poll_dual(int fd1, int fd2)
 {
     struct pollfd fds[2];
@@ -121,6 +129,7 @@ size_t poll_array(int *fds, size_t len)
 void evloop_initialize(evloop_t *loop, size_t thread_count)
 {
     loop->end = 0;
+    loop->next_task_id = 0;
     evloop_task_hmap_init(loop);
     pool_initialize(&loop->pool, thread_count);
 }
@@ -129,6 +138,11 @@ void evloop_destroy(evloop_t *loop)
 {
     pool_destroy(&loop->pool);
     evloop_task_hmap_destory(loop);
+}
+
+uint64_t evloop_task_id(evloop_t *loop)
+{
+    return loop->current_task_id;
 }
 
 message_t evloop_get_message(int pollfd)
@@ -167,6 +181,7 @@ void evloop_main_loop(evloop_t *loop)
     {
         int pollfd = evloop_poll(loop);
         evloop_task *task = evloop_task_hmap_get(loop, pollfd);
+        loop->current_task_id = task->id;
         message_t mes = evloop_get_message(pollfd);
         if (mes.mtype == mtype_terminate)
         {

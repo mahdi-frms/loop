@@ -10,6 +10,7 @@ typedef struct hashmap hashmap;
 
 struct evloop_task
 {
+    uint64_t id;
     int pipe[2];
     void *cb;
 };
@@ -49,6 +50,7 @@ typedef struct message_t message_t;
 int poll_dual(int fd1, int fd2);
 size_t poll_array(int *fds, size_t len);
 
+evloop_task *evloop_task_create(evloop_t *loop, void *cb);
 int evloop_task_cmp(const void *t1, const void *t2, void *_);
 uint64_t evloop_task_hash(const void *task, uint_fast64_t seed0, uint_fast64_t seed1);
 void evloop_task_hmap_init(evloop_t *loop);
@@ -63,11 +65,5 @@ void evloop_worker_readline(void *_, int *evl_pipe);
 void evloop_worker_write_client(void *args, int *evl_pipe);
 void evloop_worker_accept_client(void *arg, int *evl_pipe);
 void evloop_worker_read_client(void *arg, int *evl_pipe);
-
-// API
-void evloop_do_readline(evloop_t *loop, callback_readline cb);
-void evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb);
-void evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb);
-void evloop_do_write_client(evloop_t *loop, int client, char *message);
 
 #endif

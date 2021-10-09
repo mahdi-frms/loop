@@ -103,42 +103,42 @@ void evloop_worker_read_client(void *arg, int *evl_pipe)
     free(arg);
 }
 
-void evloop_do_readline(evloop_t *loop, callback_readline cb)
+uint64_t evloop_do_readline(evloop_t *loop, callback_readline cb)
 {
     arglist_readline *args = malloc(sizeof(arglist_readline));
-    evloop_task *task = malloc(sizeof(evloop_task));
-    task->cb = cb;
+    evloop_task *task = evloop_task_create(loop, cb);
     pool_execute(&loop->pool, evloop_worker_readline, args, task->pipe);
     evloop_task_hmap_add(loop, task);
+    return task->id;
 }
 
-void evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb)
+uint64_t evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb)
 {
     arglist_accept_client *args = malloc(sizeof(arglist_accept_client));
     args->server = server;
-    evloop_task *task = malloc(sizeof(evloop_task));
-    task->cb = cb;
+    evloop_task *task = evloop_task_create(loop, cb);
     pool_execute(&loop->pool, evloop_worker_accept_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
+    return task->id;
 }
 
-void evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb)
+uint64_t evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb)
 {
     arglist_read_client *args = malloc(sizeof(arglist_read_client));
     args->client = client;
-    evloop_task *task = malloc(sizeof(evloop_task));
-    task->cb = cb;
+    evloop_task *task = evloop_task_create(loop, cb);
     pool_execute(&loop->pool, evloop_worker_read_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
+    return task->id;
 }
 
-void evloop_do_write_client(evloop_t *loop, int client, char *message)
+uint64_t evloop_do_write_client(evloop_t *loop, int client, char *message)
 {
     arglist_write_client *args = malloc(sizeof(arglist_write_client));
     args->client = client;
     args->message = message;
-    evloop_task *task = malloc(sizeof(evloop_task));
-    task->cb = NULL;
+    evloop_task *task = evloop_task_create(loop, NULL);
     pool_execute(&loop->pool, evloop_worker_write_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
+    return task->id;
 }

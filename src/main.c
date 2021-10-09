@@ -23,6 +23,7 @@ char *reverse(const char *string)
 
 void on_line(evloop_t *loop, char *line)
 {
+    // printf("task id = %lu\n", evloop_task_id(loop));
     if (strcmp(line, "fin\n") == 0)
     {
         evloop_terminate(loop);
@@ -35,6 +36,7 @@ void on_line(evloop_t *loop, char *line)
 
 void on_message(evloop_t *loop, int client, char *message)
 {
+    // printf("task id = %lu\n", evloop_task_id(loop));
     char *rev = reverse(message);
     printf("client: %s", message);
     free(message);
@@ -43,6 +45,7 @@ void on_message(evloop_t *loop, int client, char *message)
 
 void on_client(evloop_t *loop, int client)
 {
+    // printf("task id = %lu\n", evloop_task_id(loop));
     printf("new client\n");
     evloop_do_read_client(loop, client, on_message);
 }
@@ -74,8 +77,10 @@ int main(int argc, char **argv)
 
     evloop_t loop;
     evloop_initialize(&loop, threads);
-    evloop_do_readline(&loop, on_line);
-    evloop_do_accpet_client(&loop, &server, on_client);
+    uint64_t tid_read = evloop_do_readline(&loop, on_line);
+    // printf("readline task id = %lu\n", tid_read);
+    uint64_t tid_accept = evloop_do_accpet_client(&loop, &server, on_client);
+    // printf("client accpet task id = %lu\n", tid_accept);
     evloop_main_loop(&loop);
     evloop_destroy(&loop);
 }
