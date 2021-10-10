@@ -2,6 +2,7 @@
 #include <server.h>
 #include <string.h>
 #include <unistd.h>
+#include <sys/socket.h>
 
 server_t server_create(int port)
 {
