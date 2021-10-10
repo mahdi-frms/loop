@@ -32,8 +32,9 @@ uint64_t evloop_task_id(evloop_t *loop);
 
 // api
 uint64_t evloop_do_readline(evloop_t *loop, callback_readline cb);
-uint64_t evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb);
-uint64_t evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb);
-uint64_t evloop_do_write_client(evloop_t *loop, int client, char *message);
+uint64_t evloop_do_sock_accpet_client(evloop_t *loop, server_t *server, callback_sock_accept_client cb);
+uint64_t evloop_do_sock_read_client(evloop_t *loop, int client, callback_sock_read_client cb);
+uint64_t evloop_do_sock_write_client(evloop_t *loop, int client, char *message);
+uint64_t evloop_do_sock_create_server(evloop_t *loop, int port, callback_sock_create_server cb);
 
 #endif

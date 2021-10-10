@@ -16,24 +16,30 @@ struct evloop_task
 };
 typedef struct evloop_task evloop_task;
 
-struct arglist_write_client
+struct arglist_sock_write_client
 {
     int client;
     char *message;
 };
-typedef struct arglist_write_client arglist_write_client;
+typedef struct arglist_sock_write_client arglist_sock_write_client;
 
-struct arglist_read_client
+struct arglist_sock_read_client
 {
     int client;
 };
-typedef struct arglist_read_client arglist_read_client;
+typedef struct arglist_sock_read_client arglist_sock_read_client;
 
-struct arglist_accept_client
+struct arglist_sock_accept_client
 {
     server_t *server;
 };
-typedef struct arglist_accept_client arglist_accept_client;
+typedef struct arglist_sock_accept_client arglist_sock_accept_client;
+
+struct arglist_sock_create_server
+{
+    int port;
+};
+typedef struct arglist_sock_create_server arglist_sock_create_server;
 
 struct arglist_readline
 {
@@ -62,8 +68,9 @@ int *evloop_task_hmap_list_readpipe(evloop_t *loop, size_t *len);
 
 // tasks
 void evloop_worker_readline(void *_, int *evl_pipe);
-void evloop_worker_write_client(void *args, int *evl_pipe);
-void evloop_worker_accept_client(void *arg, int *evl_pipe);
-void evloop_worker_read_client(void *arg, int *evl_pipe);
+void evloop_worker_sock_write_client(void *args, int *evl_pipe);
+void evloop_worker_sock_accept_client(void *arg, int *evl_pipe);
+void evloop_worker_sock_read_client(void *arg, int *evl_pipe);
+void evloop_worker_sock_create_server(void *arg, int *evl_pipe);
 
 #endif

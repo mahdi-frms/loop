@@ -40,14 +40,22 @@ void on_message(evloop_t *loop, int client, char *message)
     char *rev = reverse(message);
     printf("client: %s", message);
     free(message);
-    evloop_do_write_client(loop, client, rev);
+    evloop_do_sock_write_client(loop, client, rev);
 }
 
 void on_client(evloop_t *loop, int client)
 {
     // printf("task id = %lu\n", evloop_task_id(loop));
     printf("new client\n");
-    evloop_do_read_client(loop, client, on_message);
+    evloop_do_sock_read_client(loop, client, on_message);
+}
+
+void on_server(evloop_t *loop, server_t server)
+{
+    server_t *_server = malloc(sizeof(server_t));
+    *_server = server;
+    evloop_do_sock_accpet_client(loop, _server, on_client);
+    printf("listening on port %d...\n", _server->port);
 }
 
 int main(int argc, char **argv)
@@ -62,25 +70,11 @@ int main(int argc, char **argv)
     {
         threads = atoi(argv[2]);
     }
-    server_t server = server_create(port);
-    if (server.fd == -1)
-    {
-        perror("Error: server initialization failed\n");
-        return 1;
-    }
-    if (server_listen(&server) == -1)
-    {
-        perror("Error: server failed to listen\n");
-        return 1;
-    }
-    printf("listening on port %d...\n", port);
 
     evloop_t loop;
     evloop_initialize(&loop, threads);
-    uint64_t tid_read = evloop_do_readline(&loop, on_line);
-    // printf("readline task id = %lu\n", tid_read);
-    uint64_t tid_accept = evloop_do_accpet_client(&loop, &server, on_client);
-    // printf("client accpet task id = %lu\n", tid_accept);
+    evloop_do_readline(&loop, on_line);
+    evloop_do_sock_create_server(&loop, port, on_server);
     evloop_main_loop(&loop);
     evloop_destroy(&loop);
 }

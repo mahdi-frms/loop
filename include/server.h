@@ -9,6 +9,7 @@ typedef struct sockaddr sockaddr;
 struct server_t
 {
     int fd;
+    int port;
     sockaddr_in address;
 };
 

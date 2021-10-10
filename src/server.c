@@ -29,6 +29,7 @@ server_t server_create(int port)
     }
     server.fd = fd;
     server.address = address;
+    server.port = port;
     return server;
 }
 

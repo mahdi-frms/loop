@@ -27,9 +27,9 @@ void evloop_worker_readline(void *_, int *evl_pipe)
     }
 }
 
-void evloop_worker_write_client(void *args, int *evl_pipe)
+void evloop_worker_sock_write_client(void *args, int *evl_pipe)
 {
-    arglist_write_client arglist = *(arglist_write_client *)args;
+    arglist_sock_write_client arglist = *(arglist_sock_write_client *)args;
     write(arglist.client, arglist.message, strlen(arglist.message));
     message_t mes;
     message_terminate *_mes = malloc(sizeof(message_terminate));
@@ -40,9 +40,9 @@ void evloop_worker_write_client(void *args, int *evl_pipe)
     free(args);
 }
 
-void evloop_worker_accept_client(void *arg, int *evl_pipe)
+void evloop_worker_sock_accept_client(void *arg, int *evl_pipe)
 {
-    arglist_accept_client *arglist = arg;
+    arglist_sock_accept_client *arglist = arg;
     server_t *server = arglist->server;
     while (1)
     {
@@ -53,18 +53,18 @@ void evloop_worker_accept_client(void *arg, int *evl_pipe)
         else
         {
             message_t mes;
-            message_accept_client *_mes = malloc(sizeof(message_accept_client));
+            message_sock_accept_client *_mes = malloc(sizeof(message_sock_accept_client));
             _mes->client = server_accept(server);
             mes.ptr = _mes;
-            mes.mtype = mtype_accept_client;
+            mes.mtype = mtype_sock_accept_client;
             write(evl_pipe[1], &mes, sizeof(message_t));
         }
     }
 }
 
-void evloop_worker_read_client(void *arg, int *evl_pipe)
+void evloop_worker_sock_read_client(void *arg, int *evl_pipe)
 {
-    arglist_read_client *arglist = arg;
+    arglist_sock_read_client *arglist = arg;
     int client = arglist->client;
     while (1)
     {
@@ -90,8 +90,8 @@ void evloop_worker_read_client(void *arg, int *evl_pipe)
             else
             {
                 // client message
-                mes.mtype = mtype_read_client;
-                message_read_client *_mes = malloc(sizeof(message_read_client));
+                mes.mtype = mtype_sock_read_client;
+                message_sock_read_client *_mes = malloc(sizeof(message_sock_read_client));
                 _mes->client = client;
                 _mes->string = string;
                 mes.ptr = _mes;
@@ -100,6 +100,19 @@ void evloop_worker_read_client(void *arg, int *evl_pipe)
         }
     }
     close(client);
+    free(arg);
+}
+
+void evloop_worker_sock_create_server(void *arg, int *evl_pipe)
+{
+    arglist_sock_create_server *arglist = arg;
+    message_sock_create_server *_mes = malloc(sizeof(message_sock_create_server));
+    _mes->server = server_create(arglist->port);
+    message_t mes;
+    mes.mtype = mtype_sock_create_server;
+    mes.ptr = _mes;
+    server_listen(&_mes->server);
+    write(evl_pipe[1], &mes, sizeof(message_t));
     free(arg);
 }
 
@@ -112,33 +125,43 @@ uint64_t evloop_do_readline(evloop_t *loop, callback_readline cb)
     return task->id;
 }
 
-uint64_t evloop_do_accpet_client(evloop_t *loop, server_t *server, callback_accept_client cb)
+uint64_t evloop_do_sock_accpet_client(evloop_t *loop, server_t *server, callback_sock_accept_client cb)
 {
-    arglist_accept_client *args = malloc(sizeof(arglist_accept_client));
+    arglist_sock_accept_client *args = malloc(sizeof(arglist_sock_accept_client));
     args->server = server;
     evloop_task *task = evloop_task_create(loop, cb);
-    pool_execute(&loop->pool, evloop_worker_accept_client, args, task->pipe);
+    pool_execute(&loop->pool, evloop_worker_sock_accept_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
     return task->id;
 }
 
-uint64_t evloop_do_read_client(evloop_t *loop, int client, callback_read_client cb)
+uint64_t evloop_do_sock_read_client(evloop_t *loop, int client, callback_sock_read_client cb)
 {
-    arglist_read_client *args = malloc(sizeof(arglist_read_client));
+    arglist_sock_read_client *args = malloc(sizeof(arglist_sock_read_client));
     args->client = client;
     evloop_task *task = evloop_task_create(loop, cb);
-    pool_execute(&loop->pool, evloop_worker_read_client, args, task->pipe);
+    pool_execute(&loop->pool, evloop_worker_sock_read_client, args, task->pipe);
     evloop_task_hmap_add(loop, task);
     return task->id;
 }
 
-uint64_t evloop_do_write_client(evloop_t *loop, int client, char *message)
+uint64_t evloop_do_sock_write_client(evloop_t *loop, int client, char *message)
 {
-    arglist_write_client *args = malloc(sizeof(arglist_write_client));
+    arglist_sock_write_client *args = malloc(sizeof(arglist_sock_write_client));
     args->client = client;
     args->message = message;
     evloop_task *task = evloop_task_create(loop, NULL);
-    pool_execute(&loop->pool, evloop_worker_write_client, args, task->pipe);
+    pool_execute(&loop->pool, evloop_worker_sock_write_client, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+    return task->id;
+}
+
+uint64_t evloop_do_sock_create_server(evloop_t *loop, int port, callback_sock_create_server cb)
+{
+    arglist_sock_create_server *args = malloc(sizeof(arglist_sock_write_client));
+    args->port = port;
+    evloop_task *task = evloop_task_create(loop, cb);
+    pool_execute(&loop->pool, evloop_worker_sock_create_server, args, task->pipe);
     evloop_task_hmap_add(loop, task);
     return task->id;
 }

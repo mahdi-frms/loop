@@ -213,17 +213,23 @@ void evloop_main_loop(evloop_t *loop)
             callback_readline cb = task->cb;
             cb(loop, _mes->string);
         }
-        else if (mes.mtype == mtype_accept_client)
+        else if (mes.mtype == mtype_sock_accept_client)
         {
-            message_accept_client *_mes = mes.ptr;
-            callback_accept_client cb = task->cb;
+            message_sock_accept_client *_mes = mes.ptr;
+            callback_sock_accept_client cb = task->cb;
             cb(loop, _mes->client);
         }
-        else if (mes.mtype == mtype_read_client)
+        else if (mes.mtype == mtype_sock_read_client)
         {
-            message_read_client *_mes = mes.ptr;
-            callback_read_client cb = task->cb;
+            message_sock_read_client *_mes = mes.ptr;
+            callback_sock_read_client cb = task->cb;
             cb(loop, _mes->client, _mes->string);
+        }
+        else if (mes.mtype == mtype_sock_create_server)
+        {
+            message_sock_create_server *_mes = mes.ptr;
+            callback_sock_create_server cb = task->cb;
+            cb(loop, _mes->server);
         }
         else
         {
