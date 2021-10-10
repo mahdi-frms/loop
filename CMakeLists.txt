@@ -16,6 +16,7 @@ src/main.c
 src/server.c
 )
 
+target_compile_options(loop PRIVATE -Wall -Werror)
 target_include_directories(loop PRIVATE src)
 target_include_directories(loop PUBLIC include)
 target_link_libraries(loop PUBLIC pthread)

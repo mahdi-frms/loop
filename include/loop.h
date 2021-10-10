@@ -5,11 +5,19 @@
 #include <server.h>
 #include <message.h>
 
+enum evloop_mode
+{
+    evloop_mode_free,
+    evloop_mode_normal
+};
+typedef enum evloop_mode evloop_mode;
+
 struct evloop_t
 {
     threadpool_t pool;
     void *map;
     int end;
+    evloop_mode mode;
     uint64_t next_task_id;
     uint64_t current_task_id;
 };

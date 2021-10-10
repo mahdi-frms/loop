@@ -80,6 +80,11 @@ int *evloop_task_hmap_list_readpipe(evloop_t *loop, size_t *len)
     return array - *len;
 }
 
+size_t evloop_task_hmap_count(evloop_t *loop)
+{
+    return hashmap_count(loop->map);
+}
+
 int *evloop_task_hmap_list_writepipe(evloop_t *loop, size_t *len)
 {
     *len = hashmap_count(loop->map);
@@ -128,6 +133,7 @@ size_t poll_array(int *fds, size_t len)
 
 void evloop_initialize(evloop_t *loop, size_t thread_count)
 {
+    loop->mode = evloop_mode_normal;
     loop->end = 0;
     loop->next_task_id = 0;
     evloop_task_hmap_init(loop);
@@ -138,6 +144,11 @@ void evloop_destroy(evloop_t *loop)
 {
     pool_destroy(&loop->pool);
     evloop_task_hmap_destory(loop);
+}
+
+void evloop_set_free(evloop_t *loop)
+{
+    loop->mode = evloop_mode_free;
 }
 
 uint64_t evloop_task_id(evloop_t *loop)
@@ -179,6 +190,15 @@ void evloop_main_loop(evloop_t *loop)
 {
     while (loop->end == 0)
     {
+        if (loop->mode == evloop_mode_normal)
+        {
+            size_t count = evloop_task_hmap_count(loop);
+            if (count == 0)
+            {
+                break;
+            }
+        }
+
         int pollfd = evloop_poll(loop);
         evloop_task *task = evloop_task_hmap_get(loop, pollfd);
         loop->current_task_id = task->id;
