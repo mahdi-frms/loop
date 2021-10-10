@@ -1,14 +1,17 @@
 #ifndef POOL_H
 #define POOL_H
 
-#include <pthread.h>
+#include <stddef.h>
+
+typedef void *pthread_ptr;
+typedef void *pthread_mutex_ptr;
 
 struct threadpool_t
 {
-    pthread_t *threads;
+    pthread_ptr threads;
     size_t thread_count;
     int queue_pipe[2];
-    pthread_mutex_t mutex;
+    pthread_mutex_ptr mutex;
 };
 typedef struct threadpool_t threadpool_t;
 
