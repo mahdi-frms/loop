@@ -10,7 +10,8 @@ enum mtype_t
     mtype_readline,
     mtype_sock_accept_client,
     mtype_sock_read_client,
-    mtype_sock_create_server
+    mtype_sock_create_server,
+    mtype_timer_tick
 };
 typedef enum mtype_t mtype_t;
 
@@ -47,5 +48,11 @@ struct message_sock_create_server
 };
 typedef struct message_sock_create_server message_sock_create_server;
 typedef void (*callback_sock_create_server)(evloop_t *, server_t);
+
+struct message_timer_tick
+{
+};
+typedef struct message_timer_tick message_timer_tick;
+typedef void (*callback_timer_tick)(evloop_t *);
 
 #endif

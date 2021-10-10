@@ -112,6 +112,15 @@ int poll_dual(int fd1, int fd2)
     return fds[1].revents == POLLIN;
 }
 
+int poll_timeout(int fd, int milisecs)
+{
+    struct pollfd fds[1];
+    fds[0].fd = fd;
+    fds[0].events = POLLIN;
+    poll(fds, 1, milisecs);
+    return fds[1].revents == POLLIN;
+}
+
 size_t poll_array(int *fds, size_t len)
 {
     struct pollfd pfds[len];
@@ -230,6 +239,11 @@ void evloop_main_loop(evloop_t *loop)
             message_sock_create_server *_mes = mes.ptr;
             callback_sock_create_server cb = task->cb;
             cb(loop, _mes->server);
+        }
+        else if (mes.mtype == mtype_timer_tick)
+        {
+            callback_timer_tick cb = task->cb;
+            cb(loop);
         }
         else
         {

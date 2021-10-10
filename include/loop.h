@@ -36,5 +36,7 @@ uint64_t evloop_do_sock_accpet_client(evloop_t *loop, server_t *server, callback
 uint64_t evloop_do_sock_read_client(evloop_t *loop, int client, callback_sock_read_client cb);
 uint64_t evloop_do_sock_write_client(evloop_t *loop, int client, char *message);
 uint64_t evloop_do_sock_create_server(evloop_t *loop, int port, callback_sock_create_server cb);
+uint64_t evloop_do_timer_timeout(evloop_t *loop, int milisecs, callback_timer_tick cb);
+uint64_t evloop_do_timer_interval(evloop_t *loop, int milisecs, callback_timer_tick cb);
 
 #endif

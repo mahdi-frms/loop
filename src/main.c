@@ -58,6 +58,11 @@ void on_server(evloop_t *loop, server_t server)
     printf("listening on port %d...\n", _server->port);
 }
 
+void on_timeout(evloop_t *loop)
+{
+    printf("4 secs passed\\\n");
+}
+
 int main(int argc, char **argv)
 {
     int port = 8080;
@@ -73,6 +78,7 @@ int main(int argc, char **argv)
 
     evloop_t loop;
     evloop_initialize(&loop, threads);
+    evloop_do_timer_timeout(&loop, 4000, on_timeout);
     evloop_do_readline(&loop, on_line);
     evloop_do_sock_create_server(&loop, port, on_server);
     evloop_main_loop(&loop);

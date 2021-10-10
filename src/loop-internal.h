@@ -46,6 +46,18 @@ struct arglist_readline
 };
 typedef struct arglist_readline arglist_readline;
 
+struct arglist_timer_timeout
+{
+    int milisecs;
+};
+typedef struct arglist_timer_timeout arglist_timer_timeout;
+
+struct arglist_timer_interval
+{
+    int milisecs;
+};
+typedef struct arglist_timer_interval arglist_timer_interval;
+
 struct message_t
 {
     mtype_t mtype;
@@ -55,6 +67,7 @@ typedef struct message_t message_t;
 
 int poll_dual(int fd1, int fd2);
 size_t poll_array(int *fds, size_t len);
+int poll_timeout(int fd, int milisecs);
 
 evloop_task *evloop_task_create(evloop_t *loop, void *cb);
 int evloop_task_cmp(const void *t1, const void *t2, void *_);
@@ -72,5 +85,6 @@ void evloop_worker_sock_write_client(void *args, int *evl_pipe);
 void evloop_worker_sock_accept_client(void *arg, int *evl_pipe);
 void evloop_worker_sock_read_client(void *arg, int *evl_pipe);
 void evloop_worker_sock_create_server(void *arg, int *evl_pipe);
-
+void evloop_worker_timer_timeout(void *arg, int *evl_pipe);
+void evloop_worker_timer_interval(void *arg, int *evl_pipe);
 #endif

@@ -3,6 +3,8 @@
 #include <loop-internal.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+#include <errno.h>
 
 void evloop_worker_readline(void *_, int *evl_pipe)
 {
@@ -103,6 +105,53 @@ void evloop_worker_sock_read_client(void *arg, int *evl_pipe)
     free(arg);
 }
 
+void evloop_worker_timer_timeout(void *arg, int *evl_pipe)
+{
+    arglist_timer_timeout *arglist = arg;
+    message_t mes;
+    int pollrsl = poll_timeout(evl_pipe[0], arglist->milisecs);
+    if (pollrsl == 1)
+    {
+        mes.mtype = mtype_terminate;
+        message_terminate *_mes = malloc(sizeof(message_terminate));
+        mes.ptr = _mes;
+        write(evl_pipe[1], &mes, sizeof(message_t));
+    }
+    else
+    {
+        mes.mtype = mtype_timer_tick;
+        message_timer_tick *_mes = malloc(sizeof(message_timer_tick));
+        mes.ptr = _mes;
+        write(evl_pipe[1], &mes, sizeof(message_t));
+    }
+    free(arg);
+}
+void evloop_worker_timer_interval(void *arg, int *evl_pipe)
+{
+    arglist_timer_timeout *arglist = arg;
+    message_t mes;
+    while (1)
+    {
+        int pollrsl = poll_timeout(evl_pipe[0], arglist->milisecs);
+        if (pollrsl == 1)
+        {
+            mes.mtype = mtype_terminate;
+            message_terminate *_mes = malloc(sizeof(message_terminate));
+            mes.ptr = _mes;
+            write(evl_pipe[1], &mes, sizeof(message_t));
+            break;
+        }
+        else
+        {
+            mes.mtype = mtype_timer_tick;
+            message_timer_tick *_mes = malloc(sizeof(message_timer_tick));
+            mes.ptr = _mes;
+            write(evl_pipe[1], &mes, sizeof(message_t));
+        }
+    }
+    free(arg);
+}
+
 void evloop_worker_sock_create_server(void *arg, int *evl_pipe)
 {
     arglist_sock_create_server *arglist = arg;
@@ -162,6 +211,25 @@ uint64_t evloop_do_sock_create_server(evloop_t *loop, int port, callback_sock_cr
     args->port = port;
     evloop_task *task = evloop_task_create(loop, cb);
     pool_execute(&loop->pool, evloop_worker_sock_create_server, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+    return task->id;
+}
+
+uint64_t evloop_do_timer_timeout(evloop_t *loop, int milisecs, callback_timer_tick cb)
+{
+    arglist_timer_timeout *args = malloc(sizeof(arglist_timer_timeout));
+    args->milisecs = milisecs;
+    evloop_task *task = evloop_task_create(loop, cb);
+    pool_execute(&loop->pool, evloop_worker_timer_timeout, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+    return task->id;
+}
+uint64_t evloop_do_timer_interval(evloop_t *loop, int milisecs, callback_timer_tick cb)
+{
+    arglist_timer_interval *args = malloc(sizeof(arglist_timer_interval));
+    args->milisecs = milisecs;
+    evloop_task *task = evloop_task_create(loop, cb);
+    pool_execute(&loop->pool, evloop_worker_timer_interval, args, task->pipe);
     evloop_task_hmap_add(loop, task);
     return task->id;
 }
