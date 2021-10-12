@@ -140,6 +140,39 @@ size_t poll_array(int *fds, size_t len)
     return 0;
 }
 
+char *full_read(int fd, size_t *size)
+{
+    size_t local_size;
+    if (size == NULL)
+    {
+        size = &local_size;
+    }
+
+    int to_read = 1;
+    char *buffer = calloc(sizeof(char), to_read + 1);
+    while (1)
+    {
+        ssize_t is_read = read(fd, buffer + *size, to_read);
+        if (is_read == -1)
+        {
+            *size = 0;
+            return NULL;
+        }
+        *size += is_read;
+        if (is_read < to_read)
+        {
+            break;
+        }
+        else
+        {
+            to_read *= 2;
+            buffer = realloc(buffer, *size + to_read + 1);
+        }
+    }
+    buffer[*size] = '\0';
+    return realloc(buffer, *size + 1);
+}
+
 void evloop_initialize(evloop_t *loop, size_t thread_count)
 {
     loop->mode = evloop_mode_normal;
@@ -239,6 +272,17 @@ void evloop_main_loop(evloop_t *loop)
             message_sock_create_server *_mes = mes.ptr;
             callback_sock_create_server cb = task->cb;
             cb(loop, _mes->server);
+        }
+        else if (mes.mtype == mtype_fs_fileread)
+        {
+            message_fs_fileread *_mes = mes.ptr;
+            callback_fs_fileread cb = task->cb;
+            cb(loop, _mes->content);
+        }
+        else if (mes.mtype == mtype_fs_filewritten)
+        {
+            callback_fs_filewritten cb = task->cb;
+            cb(loop);
         }
         else if (mes.mtype == mtype_timer_tick)
         {

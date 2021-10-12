@@ -58,16 +58,23 @@ struct arglist_timer_interval
 };
 typedef struct arglist_timer_interval arglist_timer_interval;
 
-struct message_t
+struct arglist_fs_readfile
 {
-    mtype_t mtype;
-    void *ptr;
+    char *address;
 };
-typedef struct message_t message_t;
+typedef struct arglist_fs_readfile arglist_fs_readfile;
+
+struct arglist_fs_writefile
+{
+    char *address;
+    char *content;
+};
+typedef struct arglist_fs_writefile arglist_fs_writefile;
 
 int poll_dual(int fd1, int fd2);
 size_t poll_array(int *fds, size_t len);
 int poll_timeout(int fd, int milisecs);
+char *full_read(int fd, size_t *size);
 
 evloop_task *evloop_task_create(evloop_t *loop, void *cb);
 int evloop_task_cmp(const void *t1, const void *t2, void *_);

@@ -9,6 +9,7 @@ src/hashmap.c
 src/loop.c
 src/task.c
 src/worker.c
+src/message.c
 )
 
 add_executable(server

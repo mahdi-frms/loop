@@ -5,6 +5,8 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
 
 void evloop_worker_readline(void *_, int *evl_pipe)
 {
@@ -165,6 +167,39 @@ void evloop_worker_sock_create_server(void *arg, int *evl_pipe)
     free(arg);
 }
 
+void evloop_worker_fs_readfile(void *arg, int *evl_pipe)
+{
+    arglist_fs_readfile *arglist = arg;
+    int fd = open(arglist->address, O_RDONLY);
+    if (fd < 0)
+    {
+        evloop_workmes_fileread(NULL, evl_pipe);
+    }
+    else
+    {
+        char *content = full_read(fd, NULL);
+        evloop_workmes_fileread(content, evl_pipe);
+    }
+    evloop_workmes_terminate(evl_pipe);
+    free(arglist->address);
+    free(arg);
+}
+
+void evloop_worker_fs_writefile(void *arg, int *evl_pipe)
+{
+    arglist_fs_writefile *arglist = arg;
+    int fd = open(arglist->address, O_CREAT | O_WRONLY, S_IRUSR | S_IRGRP | S_IROTH | S_IWUSR | S_IWGRP);
+    if (fd > -1)
+    {
+        write(fd, arglist->content, strlen(arglist->content));
+    }
+    evloop_workmes_filewritten(evl_pipe);
+    evloop_workmes_terminate(evl_pipe);
+    free(arglist->content);
+    free(arglist->address);
+    free(arg);
+}
+
 uint64_t evloop_do_readline(evloop_t *loop, callback_readline cb)
 {
     arglist_readline *args = malloc(sizeof(arglist_readline));
@@ -230,6 +265,25 @@ uint64_t evloop_do_timer_interval(evloop_t *loop, int milisecs, callback_timer_t
     args->milisecs = milisecs;
     evloop_task *task = evloop_task_create(loop, cb);
     pool_execute(&loop->pool, evloop_worker_timer_interval, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+    return task->id;
+}
+uint64_t evloop_do_fs_readfile(evloop_t *loop, const char *address, callback_fs_fileread cb)
+{
+    arglist_fs_readfile *args = malloc(sizeof(arglist_fs_readfile));
+    args->address = strdup(address);
+    evloop_task *task = evloop_task_create(loop, cb);
+    pool_execute(&loop->pool, evloop_worker_fs_readfile, args, task->pipe);
+    evloop_task_hmap_add(loop, task);
+    return task->id;
+}
+uint64_t evloop_do_fs_writefile(evloop_t *loop, const char *address, char *content, callback_fs_filewritten cb)
+{
+    arglist_fs_writefile *args = malloc(sizeof(arglist_fs_writefile));
+    args->address = strdup(address);
+    args->content = content;
+    evloop_task *task = evloop_task_create(loop, cb);
+    pool_execute(&loop->pool, evloop_worker_fs_writefile, args, task->pipe);
     evloop_task_hmap_add(loop, task);
     return task->id;
 }

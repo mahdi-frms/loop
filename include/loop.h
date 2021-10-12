@@ -38,5 +38,6 @@ uint64_t evloop_do_sock_write_client(evloop_t *loop, int client, char *message);
 uint64_t evloop_do_sock_create_server(evloop_t *loop, int port, callback_sock_create_server cb);
 uint64_t evloop_do_timer_timeout(evloop_t *loop, int milisecs, callback_timer_tick cb);
 uint64_t evloop_do_timer_interval(evloop_t *loop, int milisecs, callback_timer_tick cb);
-
+uint64_t evloop_do_fs_readfile(evloop_t *loop, const char *address, callback_fs_fileread cb);
+uint64_t evloop_do_fs_writefile(evloop_t *loop, const char *address, char *content, callback_fs_filewritten cb);
 #endif
