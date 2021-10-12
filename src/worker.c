@@ -35,11 +35,7 @@ void evloop_worker_sock_write_client(void *args, int *evl_pipe)
 {
     arglist_sock_write_client arglist = *(arglist_sock_write_client *)args;
     write(arglist.client, arglist.message, strlen(arglist.message));
-    message_t mes;
-    message_terminate *_mes = malloc(sizeof(message_terminate));
-    mes.ptr = _mes;
-    mes.mtype = mtype_terminate;
-    write(evl_pipe[1], &mes, sizeof(message_t));
+    evloop_workmes_terminate(evl_pipe);
     free(arglist.message);
     free(args);
 }
@@ -85,10 +81,7 @@ void evloop_worker_sock_read_client(void *arg, int *evl_pipe)
             if (strcmp(string, "") == 0)
             {
                 // client closed
-                mes.mtype = mtype_terminate;
-                message_terminate *_mes = malloc(sizeof(message_terminate));
-                mes.ptr = _mes;
-                write(evl_pipe[1], &mes, sizeof(message_t));
+                evloop_workmes_terminate(evl_pipe);
                 break;
             }
             else
@@ -114,10 +107,7 @@ void evloop_worker_timer_timeout(void *arg, int *evl_pipe)
     int pollrsl = poll_timeout(evl_pipe[0], arglist->milisecs);
     if (pollrsl == 1)
     {
-        mes.mtype = mtype_terminate;
-        message_terminate *_mes = malloc(sizeof(message_terminate));
-        mes.ptr = _mes;
-        write(evl_pipe[1], &mes, sizeof(message_t));
+        evloop_workmes_terminate(evl_pipe);
     }
     else
     {
@@ -125,6 +115,7 @@ void evloop_worker_timer_timeout(void *arg, int *evl_pipe)
         message_timer_tick *_mes = malloc(sizeof(message_timer_tick));
         mes.ptr = _mes;
         write(evl_pipe[1], &mes, sizeof(message_t));
+        evloop_workmes_terminate(evl_pipe);
     }
     free(arg);
 }
@@ -137,10 +128,7 @@ void evloop_worker_timer_interval(void *arg, int *evl_pipe)
         int pollrsl = poll_timeout(evl_pipe[0], arglist->milisecs);
         if (pollrsl == 1)
         {
-            mes.mtype = mtype_terminate;
-            message_terminate *_mes = malloc(sizeof(message_terminate));
-            mes.ptr = _mes;
-            write(evl_pipe[1], &mes, sizeof(message_t));
+            evloop_workmes_terminate(evl_pipe);
             break;
         }
         else
@@ -149,6 +137,7 @@ void evloop_worker_timer_interval(void *arg, int *evl_pipe)
             message_timer_tick *_mes = malloc(sizeof(message_timer_tick));
             mes.ptr = _mes;
             write(evl_pipe[1], &mes, sizeof(message_t));
+            evloop_workmes_terminate(evl_pipe);
         }
     }
     free(arg);
