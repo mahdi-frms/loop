@@ -48,6 +48,7 @@ void evloop_worker_sock_accept_client(void *arg, int *evl_pipe)
     {
         if (poll_dual(evl_pipe[0], server->fd) == 0)
         {
+            free(server);
             break;
         }
         else
